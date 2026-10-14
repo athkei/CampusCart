@@ -8,6 +8,7 @@ before going to a campus food stall.
 This is not intended to be a complete online food delivery system.
 Students simply browse the menu, create an order, and monitor their
 order status.
+
 Required Functionalities
 1. Registration/Login
 Using Firebase Authentication.
@@ -24,7 +25,6 @@ Students can view the details of a food item.
 4. Add to Cart
 Students can:
 • Select food
-
 • Select quantity
 • Add to cart
 5. Order Summary
