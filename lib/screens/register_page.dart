@@ -20,6 +20,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _auth = AuthService();
   bool _loading = false;
   bool _hide = true;
+  bool _hideConfirm = true;
 
   @override
   void dispose() {
@@ -60,6 +61,12 @@ class _RegisterPageState extends State<RegisterPage> {
       icon: Icon(_hide ? Icons.visibility_off : Icons.visibility,
           color: ink, size: 20),
       onPressed: () => setState(() => _hide = !_hide),
+    );
+
+    final eyeConfirm = IconButton(
+      icon: Icon(_hideConfirm ? Icons.visibility_off : Icons.visibility,
+          color: ink, size: 20),
+      onPressed: () => setState(() => _hideConfirm = !_hideConfirm),
     );
 
     return Scaffold(
@@ -147,8 +154,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _confirm,
-                  obscureText: _hide,
-                  decoration: boldField('Confirm Password'),
+                  obscureText: _hideConfirm,
+                  decoration: boldField('Confirm Password', suffix: eyeConfirm),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Confirm your password';
                     if (v != _password.text) return 'Passwords do not match';

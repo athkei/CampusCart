@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../common.dart';
@@ -89,7 +90,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: StreamBuilder(
+          child: StreamBuilder<DatabaseEvent>(
             stream: _profile.userStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -99,11 +100,14 @@ class _HomePageState extends State<HomePage> {
               if (!snapshot.hasData) {
                 return const CircularProgressIndicator(color: blue);
               }
-              final data = snapshot.data!.data();
-              final name = data == null
-                  ? 'Student'
+              final raw = snapshot.data!.snapshot.value;
+              final Map<String, dynamic>? data =
+                  raw is Map ? Map<String, dynamic>.from(raw) : null;
+              var name = data == null
+                  ? ''
                   : '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
                       .trim();
+              if (name.isEmpty) name = 'Student';
               final email = data?['email'] ?? _auth.currentUser?.email ?? '';
               final String? photoUrl = data?['photoUrl'];
 

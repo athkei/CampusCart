@@ -1,20 +1,22 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// Handles the optional profile photo: pick -> upload to Storage -> save URL in Firestore.
+/// Handles the optional profile photo: pick -> upload to Storage -> save URL
+/// in the Realtime Database at users/{uid}/photoUrl.
 class ProfileService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseDatabase _db = FirebaseDatabase.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
-  /// Live user document (name, email, photoUrl).
-  Stream<DocumentSnapshot<Map<String, dynamic>>> userStream() =>
-      _db.collection('users').doc(_uid).snapshots();
+  DatabaseReference get _userRef => _db.ref('users/$_uid');
+
+  /// Live user profile (firstName, lastName, email, photoUrl).
+  Stream<DatabaseEvent> userStream() => _userRef.onValue;
 
   /// Opens the camera or the gallery. Returns null if the user cancels.
   Future<File?> pickImage(ImageSource source) async {
@@ -32,7 +34,7 @@ class ProfileService {
     final ref = _storage.ref().child('profile_photos/$_uid.jpg');
     await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
     final url = await ref.getDownloadURL();
-    await _db.collection('users').doc(_uid).update({'photoUrl': url});
+    await _userRef.update({'photoUrl': url});
     return url;
   }
 
@@ -43,6 +45,6 @@ class ProfileService {
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }
-    await _db.collection('users').doc(_uid).update({'photoUrl': null});
+    await _userRef.child('photoUrl').remove();
   }
 }
