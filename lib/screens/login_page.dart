@@ -40,20 +40,6 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _forgot() async {
-    final email = _email.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      showMsg(context, 'Enter your email first.');
-      return;
-    }
-    try {
-      await _auth.sendPasswordReset(email);
-      if (mounted) showMsg(context, 'Password reset email sent.');
-    } on FirebaseAuthException catch (e) {
-      if (mounted) showMsg(context, AuthService.errorMessage(e));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,24 +84,9 @@ class _LoginPageState extends State<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Password',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: ink,
-                              fontSize: 14)),
-                      GestureDetector(
-                        onTap: _forgot,
-                        child: const Text('Forgot password?',
-                            style: TextStyle(
-                                color: blue,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13)),
-                      ),
-                    ],
-                  ),
+                  const Text('Password',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, color: ink, fontSize: 14)),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _password,

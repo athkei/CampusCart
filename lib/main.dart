@@ -5,7 +5,7 @@ import 'firebase_options.dart';
 import 'common.dart';
 import 'services/auth_service.dart';
 import 'screens/login_page.dart';
-import 'screens/home_page.dart';
+import 'screens/menu_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
 }
 
 /// Decides which screen to show based on the Firebase login state.
-/// Logged in  -> HomePage (stays logged in after the app is restarted)
+/// Logged in  -> MenuPage (stays logged in after the app is restarted)
 /// Logged out -> LoginPage
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -58,7 +58,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: blue)),
           );
         }
-        if (snapshot.hasData) return const HomePage();
+        if (snapshot.hasData) return const MenuPage();
         return const LoginPage();
       },
     );

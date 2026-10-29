@@ -32,9 +32,16 @@ service firebase.storage {
 }
 
 PUBSPEC DEPENDENCIES
-  firebase_core, firebase_auth, cloud_firestore, firebase_storage, image_picker
+  firebase_core, firebase_auth, firebase_database, cloud_firestore, firebase_storage, image_picker
 
 ANDROID: AndroidManifest.xml
   <uses-permission android:name="android.permission.CAMERA"/>
 iOS: Info.plist
   NSCameraUsageDescription, NSPhotoLibraryUsageDescription
+
+SEEDING THE MENU (one time)
+  1. Firestore > Rules: add  allow write: if request.auth != null;  inside
+     match /menu/{doc}  (temporary).  Publish.
+  2. Run the app, log in, tap the orange cloud-upload icon in the Food Menu AppBar.
+  3. Remove that line from the rules again, then delete menu_seeder.dart and
+     the upload IconButton in menu_page.dart.

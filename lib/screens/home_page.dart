@@ -1,5 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../common.dart';
@@ -82,15 +83,28 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
-    if (ok == true) await _auth.logout(); // AuthGate returns to LoginPage
+    if (ok != true || !mounted) return;
+    // HomePage was pushed on top of MenuPage, so close it first. Otherwise it
+    // stays on screen after sign out and shows "Could not load profile".
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    await _auth.logout(); // AuthGate then shows LoginPage
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: ink),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Center(
-          child: StreamBuilder<DatabaseEvent>(
+          child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: _profile.userStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -100,9 +114,7 @@ class _HomePageState extends State<HomePage> {
               if (!snapshot.hasData) {
                 return const CircularProgressIndicator(color: blue);
               }
-              final raw = snapshot.data!.snapshot.value;
-              final Map<String, dynamic>? data =
-                  raw is Map ? Map<String, dynamic>.from(raw) : null;
+              final Map<String, dynamic>? data = snapshot.data!.data();
               var name = data == null
                   ? ''
                   : '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
@@ -122,7 +134,9 @@ class _HomePageState extends State<HomePage> {
                           radius: 56,
                           backgroundColor: skyBlue,
                           backgroundImage:
-                              photoUrl != null ? NetworkImage(photoUrl) : null,
+                              photoUrl != null
+                              ? MemoryImage(base64Decode(photoUrl))
+                              : null,
                           child: photoUrl == null
                               ? const Icon(Icons.person, size: 56, color: oceanBlue)
                               : null,

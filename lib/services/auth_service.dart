@@ -1,14 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-/// All Firebase Authentication + Realtime Database logic for sign up / login.
+/// All Firebase Authentication + Firestore logic for sign up / login.
 ///
 /// Auth      -> email + password accounts (Firebase Authentication)
-/// Database  -> profile of each student at:  users/{uid}
+/// Firestore -> profile of each student at:  users/{uid}
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _users = FirebaseDatabase.instance.ref('users');
+  final CollectionReference<Map<String, dynamic>> _users =
+      FirebaseFirestore.instance.collection('users');
 
   /// Emits the current user whenever someone logs in or out.
   Stream<User?> get authChanges => _auth.authStateChanges();
@@ -29,15 +30,16 @@ class AuthService {
     final user = cred.user!;
 
     try {
-      await _users.child(user.uid).set({
+      await _users.doc(user.uid).set({
         'firstName': firstName,
         'lastName': lastName,
         'email': email,
-        'createdAt': ServerValue.timestamp,
-        'lastLoginAt': ServerValue.timestamp,
+        'photoUrl': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLoginAt': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 10));
     } catch (e) {
-      // Database write failed (rules / wrong databaseURL / offline):
+      // Firestore write failed (rules / not created / offline):
       // remove the Auth account so there is no login without a profile.
       await user.delete();
       rethrow;
@@ -50,23 +52,20 @@ class AuthService {
       password: password,
     );
 
-    // Record the login. update() also recreates a partial profile if the
+    // Record the login. set(merge) also creates a partial profile if the
     // account was made outside the app (e.g. in the Firebase console).
     // A failure here should not block a successful login.
     try {
-      await _users.child(cred.user!.uid).update({
+      await _users.doc(cred.user!.uid).set({
         'email': cred.user!.email,
-        'lastLoginAt': ServerValue.timestamp,
-      }).timeout(const Duration(seconds: 10));
+        'lastLoginAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
     } catch (e) {
       debugPrint('Could not update lastLoginAt: $e');
     }
   }
 
   Future<void> logout() => _auth.signOut();
-
-  Future<void> sendPasswordReset(String email) =>
-      _auth.sendPasswordResetEmail(email: email);
 
   /// Turns Firebase error codes into messages a student can understand.
   static String errorMessage(FirebaseAuthException e) {

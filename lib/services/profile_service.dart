@@ -1,22 +1,22 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-
-/// Handles the optional profile photo: pick -> upload to Storage -> save URL
-/// in the Realtime Database at users/{uid}/photoUrl.
+/// Handles the optional profile photo: pick -> encode as base64 -> save in
+/// Firestore at users/{uid}.photoUrl (no Firebase Storage needed).
 class ProfileService {
-  final FirebaseDatabase _db = FirebaseDatabase.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
-  DatabaseReference get _userRef => _db.ref('users/$_uid');
+  DocumentReference<Map<String, dynamic>> get _userRef =>
+      _db.collection('users').doc(_uid);
 
   /// Live user profile (firstName, lastName, email, photoUrl).
-  Stream<DatabaseEvent> userStream() => _userRef.onValue;
+  Stream<DocumentSnapshot<Map<String, dynamic>>> userStream() =>
+      _userRef.snapshots();
 
   /// Opens the camera or the gallery. Returns null if the user cancels.
   Future<File?> pickImage(ImageSource source) async {
@@ -29,22 +29,16 @@ class ProfileService {
     return picked == null ? null : File(picked.path);
   }
 
-  /// Uploads to profile_photos/{uid}.jpg and saves the download URL.
+  /// Saves the photo as a base64 string at users/{uid}.photoUrl.
   Future<String> uploadProfilePhoto(File file) async {
-    final ref = _storage.ref().child('profile_photos/$_uid.jpg');
-    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-    final url = await ref.getDownloadURL();
-    await _userRef.update({'photoUrl': url});
-    return url;
+    final bytes = await file.readAsBytes();
+    final b64 = base64Encode(bytes);
+    await _userRef.set({'photoUrl': b64}, SetOptions(merge: true));
+    return b64;
   }
 
   /// Removes the photo and goes back to the default avatar.
   Future<void> removeProfilePhoto() async {
-    try {
-      await _storage.ref().child('profile_photos/$_uid.jpg').delete();
-    } on FirebaseException catch (e) {
-      if (e.code != 'object-not-found') rethrow;
-    }
-    await _userRef.child('photoUrl').remove();
+    await _userRef.set({'photoUrl': null}, SetOptions(merge: true));
   }
 }
