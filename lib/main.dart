@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'CampusCart',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
+        colorScheme: ColorScflutter upgradeheme.fromSeed(
           seedColor: oceanBlue,
           primary: oceanBlue,
           secondary: apricot,
