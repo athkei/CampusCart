@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import '../common.dart';
 import '../models/food_item.dart';
 import '../services/cart_service.dart';
-import '../services/menu_seeder.dart';
 import '../services/menu_service.dart';
 import '../widgets/food_image.dart';
 import 'cart_page.dart';
 import 'food_details_page.dart';
 import 'home_page.dart';
 
-/// Food Menu: shows every item from Firestore, with category filter chips.
-/// Tap an item to open its details.
+/// Food Menu: list of food from Firestore + category filter.
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
 
@@ -19,10 +17,10 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  // Created once. If this were inside build(), the Firestore stream would
-  // restart every time the filter changes.
-  late final Stream<List<FoodItem>> _menuStream = MenuService().menuStream();
+  // Created once so the stream doesn't restart when we filter.
+  final Stream<List<FoodItem>> _menuStream = MenuService().menuStream();
 
+  // Which category chip is selected right now.
   String _selectedCategory = 'All';
 
   @override
@@ -33,22 +31,6 @@ class _MenuPageState extends State<MenuPage> {
         title: const Text('Food Menu',
             style: TextStyle(fontWeight: FontWeight.w800, color: ink)),
         actions: [
-          // TEMPORARY: uploads sample menu items to Firestore (remove later)
-          IconButton(
-            icon: const Icon(Icons.cloud_upload, color: persimmon),
-            tooltip: 'Upload sample menu',
-            onPressed: () async {
-              try {
-                final n = await MenuSeeder().seed();
-                if (context.mounted) {
-                  showMsg(context,
-                      n == 0 ? 'Menu already has items.' : 'Added $n items.');
-                }
-              } catch (e) {
-                if (context.mounted) showMsg(context, 'Upload failed: $e');
-              }
-            },
-          ),
           // Cart icon with a badge showing how many items are in the cart
           ValueListenableBuilder<int>(
             valueListenable: CartService.itemCount,
@@ -81,66 +63,67 @@ class _MenuPageState extends State<MenuPage> {
         stream: _menuStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(
-              child: Text('Could not load menu.', style: TextStyle(color: red)),
-            );
+            return const Center(child: Text('Could not load menu.'));
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: blue));
           }
+
           final items = snapshot.data!;
           if (items.isEmpty) {
             return const Center(child: Text('No food items yet.'));
           }
 
-          // Build the chip list from whatever categories exist in Firestore.
-          final categories = ['All'] +
-              (items
-                  .map((i) => i.category)
-                  .where((c) => c.isNotEmpty)
-                  .toSet()
-                  .toList()
-                ..sort());
-          final selected =
-              categories.contains(_selectedCategory) ? _selectedCategory : 'All';
-          final shown = selected == 'All'
+          // 1. Collect the categories (All + every category found).
+          final categories = ['All'];
+          for (final item in items) {
+            if (item.category.isNotEmpty && !categories.contains(item.category)) {
+              categories.add(item.category);
+            }
+          }
+
+          // 2. Keep only the items of the selected category.
+          final shownItems = _selectedCategory == 'All'
               ? items
-              : items.where((i) => i.category == selected).toList();
+              : items.where((i) => i.category == _selectedCategory).toList();
 
           return Column(
             children: [
+              // Category chips
               SizedBox(
                 height: 56,
-                child: ListView.separated(
+                child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  itemCount: categories.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) {
-                    final c = categories[i];
-                    final isSelected = c == selected;
-                    return ChoiceChip(
-                      label: Text(c),
-                      selected: isSelected,
-                      showCheckmark: false,
-                      selectedColor: blue,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: skyBlue),
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.white : ink,
+                  padding: const EdgeInsets.all(10),
+                  children: [
+                    for (final category in categories)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: _selectedCategory == category,
+                          showCheckmark: false,
+                          selectedColor: blue,
+                          labelStyle: TextStyle(
+                            color: _selectedCategory == category
+                                ? Colors.white
+                                : ink,
+                          ),
+                          onSelected: (_) {
+                            setState(() => _selectedCategory = category);
+                          },
+                        ),
                       ),
-                      onSelected: (_) => setState(() => _selectedCategory = c),
-                    );
-                  },
+                  ],
                 ),
               ),
+              // Food list
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                  itemCount: shown.length,
-                  itemBuilder: (context, i) => FoodTile(item: shown[i]),
+                  padding: const EdgeInsets.all(12),
+                  itemCount: shownItems.length,
+                  itemBuilder: (context, index) =>
+                      FoodTile(item: shownItems[index]),
                 ),
               ),
             ],
@@ -151,8 +134,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 }
 
-/// One menu card: image, name, short description, category, price.
-/// Tapping it opens the food details screen.
+/// One food row. Tap it to open the details screen.
 class FoodTile extends StatelessWidget {
   final FoodItem item;
   const FoodTile({super.key, required this.item});
@@ -162,86 +144,32 @@ class FoodTile extends StatelessWidget {
     return Card(
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      child: ListTile(
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => FoodDetailsPage(item: item)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Hero(
-                tag: 'food-${item.id}',
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: FoodImage(url: item.imageUrl, width: 88, height: 88),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 88,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: grey, fontSize: 13),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          if (item.category.isNotEmpty)
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: blushPink,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  item.category,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: persimmon),
-                                ),
-                              ),
-                            ),
-                          const Spacer(),
-                          Text(
-                            '₱${item.price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: persimmon,
-                                fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        leading: Hero(
+          tag: 'food-${item.id}',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: FoodImage(url: item.imageUrl, width: 56, height: 56),
           ),
+        ),
+        title: Text(
+          item.name,
+          style: const TextStyle(fontWeight: FontWeight.w700, color: ink),
+        ),
+        subtitle: Text(
+          '${item.category}\n${item.description}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        isThreeLine: true,
+        trailing: Text(
+          '₱${item.price.toStringAsFixed(2)}',
+          style: const TextStyle(
+              fontWeight: FontWeight.w800, color: persimmon, fontSize: 16),
         ),
       ),
     );

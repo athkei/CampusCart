@@ -4,6 +4,7 @@ import '../models/food_item.dart';
 import '../services/cart_service.dart';
 import '../widgets/food_image.dart';
 
+/// Food Details: shows one food item, lets the student pick a quantity.
 class FoodDetailsPage extends StatefulWidget {
   final FoodItem item;
   const FoodDetailsPage({super.key, required this.item});
@@ -13,22 +14,21 @@ class FoodDetailsPage extends StatefulWidget {
 }
 
 class _FoodDetailsPageState extends State<FoodDetailsPage> {
-  static const int _maxQty = 20;
-  int _quantity = 1;
-
-  FoodItem get item => widget.item;
-  double get _total => item.price * _quantity;
+  int quantity = 1;
 
   // Adds the food and the chosen quantity to the cart, then goes back
   // to the menu. The cart icon there shows the new item count.
   void _addToCart() {
-    CartService.addItem(item, _quantity);
-    showMsg(context, '$_quantity x ${item.name} added to cart.');
+    CartService.addItem(widget.item, quantity);
+    showMsg(context, '$quantity x ${widget.item.name} added to cart.');
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final total = item.price * quantity;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: bg,
@@ -36,161 +36,77 @@ class _FoodDetailsPageState extends State<FoodDetailsPage> {
         title: const Text('Food Details',
             style: TextStyle(fontWeight: FontWeight.w800, color: ink)),
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Hero(
-                    tag: 'food-${item.id}',
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: FoodImage(
-                        url: item.imageUrl,
-                        width: double.infinity,
-                        height: 240,
-                        iconSize: 64,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: ink),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '₱${item.price.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: persimmon),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (item.category.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: blushPink,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        item.category,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, color: persimmon),
-                      ),
-                    ),
-                  const SizedBox(height: 18),
-                  const Text('Description',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: ink)),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.description.isEmpty
-                        ? 'No description available.'
-                        : item.description,
-                    style: const TextStyle(
-                        fontSize: 15, height: 1.4, color: grey),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text('Quantity',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: ink)),
-                      ),
-                      IconButton.filledTonal(
-                        onPressed: _quantity > 1
-                            ? () => setState(() => _quantity--)
-                            : null,
-                        icon: const Icon(Icons.remove),
-                      ),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          '$_quantity',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: ink),
-                        ),
-                      ),
-                      IconButton.filledTonal(
-                        onPressed: _quantity < _maxQty
-                            ? () => setState(() => _quantity++)
-                            : null,
-                        icon: const Icon(Icons.add),
-                      ),
-                    ],
-                  ),
-                ],
+          // Food image
+          Hero(
+            tag: 'food-${item.id}',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: FoodImage(
+                url: item.imageUrl,
+                width: double.infinity,
+                height: 220,
+                iconSize: 64,
               ),
             ),
           ),
-          // Bottom bar: running total + Add to Cart
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                    color: Color(0x1A000000),
-                    blurRadius: 8,
-                    offset: Offset(0, -2)),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Row(
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Total',
-                            style: TextStyle(color: grey, fontSize: 13)),
-                        Text(
-                          '₱${_total.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: ink),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: AppButton(
-                        text: 'Add to Cart',
-                        onPressed: _addToCart,
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(height: 16),
+
+          // Name and price
+          Text(item.name,
+              style: const TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 4),
+          Text('₱${item.price.toStringAsFixed(2)}',
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800, color: persimmon)),
+          const SizedBox(height: 8),
+
+          // Category
+          Text('Category: ${item.category}',
+              style: const TextStyle(color: grey)),
+          const SizedBox(height: 16),
+
+          // Description
+          const Text('Description',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700, color: ink)),
+          const SizedBox(height: 4),
+          Text(item.description, style: const TextStyle(color: grey)),
+          const SizedBox(height: 24),
+
+          // Quantity: - 1 +
+          Row(
+            children: [
+              const Text('Quantity',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700, color: ink)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.remove_circle, color: blue),
+                onPressed: () {
+                  if (quantity > 1) setState(() => quantity--);
+                },
               ),
-            ),
+              Text('$quantity',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: blue),
+                onPressed: () => setState(() => quantity++),
+              ),
+            ],
           ),
+          const SizedBox(height: 16),
+
+          // Total + button
+          Text('Total: ₱${total.toStringAsFixed(2)}',
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          AppButton(text: 'Add to Cart', onPressed: _addToCart),
         ],
       ),
     );
