@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../common.dart';
 import '../models/food_item.dart';
+import '../services/cart_service.dart';
 import '../services/menu_seeder.dart';
 import '../services/menu_service.dart';
 import '../widgets/food_image.dart';
+import 'cart_page.dart';
 import 'food_details_page.dart';
 import 'home_page.dart';
 
@@ -45,6 +47,24 @@ class _MenuPageState extends State<MenuPage> {
               } catch (e) {
                 if (context.mounted) showMsg(context, 'Upload failed: $e');
               }
+            },
+          ),
+          // Cart icon with a badge showing how many items are in the cart
+          ValueListenableBuilder<int>(
+            valueListenable: CartService.itemCount,
+            builder: (context, count, child) {
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: const Icon(Icons.shopping_cart, color: blue),
+                ),
+                tooltip: 'My cart',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CartPage()),
+                ),
+              );
             },
           ),
           // Opens the profile screen (photo + sign out)

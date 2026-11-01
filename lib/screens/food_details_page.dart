@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../common.dart';
 import '../models/food_item.dart';
+import '../services/cart_service.dart';
 import '../widgets/food_image.dart';
 
 class FoodDetailsPage extends StatefulWidget {
@@ -18,14 +19,12 @@ class _FoodDetailsPageState extends State<FoodDetailsPage> {
   FoodItem get item => widget.item;
   double get _total => item.price * _quantity;
 
-  // ---------------------------------------------------------------------
-  // TODO (cart teammate): this is the only place that needs to change.
-  // Use `item` (the food) and `_quantity` (how many) to add the order line
-  // to the cart, then show a confirmation / go to the cart screen.
-  // Right now the button is a placeholder and does NOT add anything.
-  // ---------------------------------------------------------------------
+  // Adds the food and the chosen quantity to the cart, then goes back
+  // to the menu. The cart icon there shows the new item count.
   void _addToCart() {
-    showMsg(context, 'Add to Cart is not connected yet.');
+    CartService.addItem(item, _quantity);
+    showMsg(context, '$_quantity x ${item.name} added to cart.');
+    Navigator.pop(context);
   }
 
   @override

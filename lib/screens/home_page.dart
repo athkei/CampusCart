@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../common.dart';
 import '../services/auth_service.dart';
+import '../services/cart_service.dart';
 import '../services/profile_service.dart';
 
 /// Placeholder home screen for the auth + profile part.
@@ -87,6 +88,7 @@ class _HomePageState extends State<HomePage> {
     // HomePage was pushed on top of MenuPage, so close it first. Otherwise it
     // stays on screen after sign out and shows "Could not load profile".
     Navigator.of(context).popUntil((route) => route.isFirst);
+    CartService.clear(); // a new student should start with an empty cart
     await _auth.logout(); // AuthGate then shows LoginPage
   }
 
