@@ -37,13 +37,17 @@ class CartService {
   static bool get isEmpty => items.isEmpty;
 
   // Add food to the cart. If it is already there, just add to its quantity.
-  static void addItem(FoodItem food, int quantity) {
+  // Returns how many pieces were REALLY added (0 if the item is already at
+  // the maximum), so the screen can show the correct message.
+  static int addItem(FoodItem food, int quantity) {
     for (int i = 0; i < items.length; i++) {
       if (items[i].foodId == food.id) {
-        items[i].quantity = items[i].quantity + quantity;
-        if (items[i].quantity > maxQty) items[i].quantity = maxQty;
+        int space = maxQty - items[i].quantity;
+        int added = quantity;
+        if (added > space) added = space;
+        items[i].quantity = items[i].quantity + added;
         _updateCount();
-        return;
+        return added;
       }
     }
 
@@ -58,6 +62,7 @@ class CartService {
       quantity: quantity,
     ));
     _updateCount();
+    return quantity;
   }
 
   static void increaseQuantity(CartItem item) {

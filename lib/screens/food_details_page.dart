@@ -19,8 +19,17 @@ class _FoodDetailsPageState extends State<FoodDetailsPage> {
   // Adds the food and the chosen quantity to the cart, then goes back
   // to the menu. The cart icon there shows the new item count.
   void _addToCart() {
-    CartService.addItem(widget.item, quantity);
-    showMsg(context, '$quantity x ${widget.item.name} added to cart.');
+    int added = CartService.addItem(widget.item, quantity);
+    final name = widget.item.name;
+    final max = CartService.maxQty;
+
+    if (added == 0) {
+      showMsg(context, 'Your cart already has the maximum of $max $name.');
+    } else if (added < quantity) {
+      showMsg(context, 'Only $added x $name added. Maximum is $max per item.');
+    } else {
+      showMsg(context, '$added x $name added to cart.');
+    }
     Navigator.pop(context);
   }
 
