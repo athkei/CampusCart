@@ -47,6 +47,9 @@ class CartService {
       }
     }
 
+    // A new item also respects the maximum quantity
+    if (quantity > maxQty) quantity = maxQty;
+
     items.add(CartItem(
       foodId: food.id,
       name: food.name,
