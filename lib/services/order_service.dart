@@ -14,7 +14,6 @@ class OrderService {
     if (userId.trim().isEmpty) {
       throw StateError('A logged-in user is required to place an order.');
     }
-
     if (items.isEmpty) {
       throw StateError('Cart is empty. Add at least one food item before placing an order.');
     }
