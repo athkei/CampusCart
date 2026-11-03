@@ -4,8 +4,6 @@ import '../common.dart';
 import '../services/auth_service.dart';
 import '../services/order_service.dart';
 
-/// Live order history for the signed-in student.
-/// The status selector is a UI-only demo; it does not write to Firestore.
 class MyOrdersPage extends StatefulWidget {
   const MyOrdersPage({super.key});
 
@@ -14,17 +12,15 @@ class MyOrdersPage extends StatefulWidget {
 }
 
 class _MyOrdersPageState extends State<MyOrdersPage> {
-  static const _statuses = <String>[
+  static const List<String> _statuses = [
     'Pending',
     'Preparing',
     'Ready for Pickup',
     'Completed',
   ];
 
-  // Temporary preview state used only by the interface. It is intentionally
-  // not persisted, since this project needs the status-update UI, not backend
-  // status-management functionality.
-  final Map<String, String> _previewStatuses = {};
+  // Demo-only local override: visible in UI only, never saved to Firestore.
+  final Map<String, String> _demoStatusOverrides = {};
 
   Color _statusColor(String status) {
     switch (status) {
@@ -82,6 +78,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                     ),
                   );
                 }
+
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
                   return const Center(
@@ -112,17 +109,17 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                   itemBuilder: (context, index) {
                     final doc = orders[index];
                     final data = doc.data();
-                    final storedStatus = data['status'] is String
+
+                    final backendStatus = data['status'] is String
                         ? data['status'] as String
                         : 'Pending';
-                    final storedStatusIndex = _statuses.indexOf(storedStatus);
-                    final status = _previewStatuses[doc.id] ??
-                        (storedStatusIndex < 0 ? 'Pending' : storedStatus);
+                    final currentStatus =
+                        _demoStatusOverrides[doc.id] ?? backendStatus;
+
                     final rawItems = data['items'];
                     final items = rawItems is List ? rawItems : const [];
                     final total = data['totalPrice'];
                     final totalPrice = total is num ? total.toDouble() : 0.0;
-                    final activeIndex = _statuses.indexOf(status);
 
                     return Card(
                       color: Colors.white,
@@ -147,13 +144,13 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                                 ),
                                 Chip(
                                   label: Text(
-                                    status,
+                                    currentStatus,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  backgroundColor: _statusColor(status),
+                                  backgroundColor: _statusColor(currentStatus),
                                   visualDensity: VisualDensity.compact,
                                 ),
                               ],
@@ -186,9 +183,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
+
+                            // Demo-only control: interface only; nothing writes to Firestore.
                             DropdownButtonFormField<String>(
-                              value: status,
+                              value: currentStatus,
                               decoration: const InputDecoration(
                                 labelText: 'Update status (demo only)',
                                 border: OutlineInputBorder(),
@@ -202,49 +201,18 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                                   .toList(),
                               onChanged: (value) {
                                 if (value == null) return;
-                                setState(() => _previewStatuses[doc.id] = value);
+                                setState(() {
+                                  _demoStatusOverrides[doc.id] = value;
+                                });
                               },
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Demo control: this selection changes the screen only; it is not saved to Firestore.',
-                              style: TextStyle(fontSize: 12, color: grey),
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                for (var i = 0; i < _statuses.length; i++) ...[
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          i <= activeIndex
-                                              ? Icons.check_circle
-                                              : Icons.circle_outlined,
-                                          size: 18,
-                                          color: i <= activeIndex
-                                              ? _statusColor(status)
-                                              : skyBlue,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _statuses[i],
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: i <= activeIndex ? ink : grey,
-                                            fontWeight: i == activeIndex
-                                                ? FontWeight.w800
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (i < _statuses.length - 1)
-                                    const SizedBox(width: 2),
-                                ],
-                              ],
+                              'Demo mode: this selector only changes the screen display.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: grey,
+                              ),
                             ),
                           ],
                         ),
