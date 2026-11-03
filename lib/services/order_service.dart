@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Creates a Firestore order document for a student checkout.
 class OrderService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final CollectionReference<Map<String, dynamic>> _orders =
