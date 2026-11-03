@@ -7,6 +7,7 @@ import '../widgets/food_image.dart';
 import 'cart_page.dart';
 import 'food_details_page.dart';
 import 'home_page.dart';
+import 'my_orders_page.dart';
 
 /// Food Menu: list of food from Firestore + category filter.
 class MenuPage extends StatefulWidget {
@@ -17,10 +18,7 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  // Created once so the stream doesn't restart when we filter.
   final Stream<List<FoodItem>> _menuStream = MenuService().menuStream();
-
-  // Which category chip is selected right now.
   String _selectedCategory = 'All';
 
   @override
@@ -31,7 +29,14 @@ class _MenuPageState extends State<MenuPage> {
         title: const Text('Food Menu',
             style: TextStyle(fontWeight: FontWeight.w800, color: ink)),
         actions: [
-          // Cart icon with a badge showing how many items are in the cart
+          IconButton(
+            icon: const Icon(Icons.receipt_long, color: blue),
+            tooltip: 'My orders',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyOrdersPage()),
+            ),
+          ),
           ValueListenableBuilder<int>(
             valueListenable: CartService.itemCount,
             builder: (context, count, child) {
@@ -49,7 +54,6 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
           ),
-          // Opens the profile screen (photo + sign out)
           IconButton(
             icon: const Icon(Icons.person, color: blue),
             onPressed: () => Navigator.push(
@@ -74,22 +78,18 @@ class _MenuPageState extends State<MenuPage> {
             return const Center(child: Text('No food items yet.'));
           }
 
-          // 1. Collect the categories (All + every category found).
           final categories = ['All'];
           for (final item in items) {
             if (item.category.isNotEmpty && !categories.contains(item.category)) {
               categories.add(item.category);
             }
           }
-
-          // 2. Keep only the items of the selected category.
           final shownItems = _selectedCategory == 'All'
               ? items
-              : items.where((i) => i.category == _selectedCategory).toList();
+              : items.where((item) => item.category == _selectedCategory).toList();
 
           return Column(
             children: [
-              // Category chips
               SizedBox(
                 height: 56,
                 child: ListView(
@@ -109,15 +109,13 @@ class _MenuPageState extends State<MenuPage> {
                                 ? Colors.white
                                 : ink,
                           ),
-                          onSelected: (_) {
-                            setState(() => _selectedCategory = category);
-                          },
+                          onSelected: (_) =>
+                              setState(() => _selectedCategory = category),
                         ),
                       ),
                   ],
                 ),
               ),
-              // Food list
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(12),
@@ -169,7 +167,10 @@ class FoodTile extends StatelessWidget {
         trailing: Text(
           '₱${item.price.toStringAsFixed(2)}',
           style: const TextStyle(
-              fontWeight: FontWeight.w800, color: persimmon, fontSize: 16),
+            fontWeight: FontWeight.w800,
+            color: persimmon,
+            fontSize: 16,
+          ),
         ),
       ),
     );
