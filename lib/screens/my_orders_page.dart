@@ -4,18 +4,27 @@ import '../common.dart';
 import '../services/auth_service.dart';
 import '../services/order_service.dart';
 
-/// Shows live order history for the signed-in student.
-/// Statuses are changed by an authorized operator in Firebase Console; students
-/// can observe updates here but cannot change status from the client app.
-class MyOrdersPage extends StatelessWidget {
+/// Live order history for the signed-in student.
+/// The status selector is a UI-only demo; it does not write to Firestore.
+class MyOrdersPage extends StatefulWidget {
   const MyOrdersPage({super.key});
 
+  @override
+  State<MyOrdersPage> createState() => _MyOrdersPageState();
+}
+
+class _MyOrdersPageState extends State<MyOrdersPage> {
   static const _statuses = <String>[
     'Pending',
     'Preparing',
     'Ready for Pickup',
     'Completed',
   ];
+
+  // Temporary preview state used only by the interface. It is intentionally
+  // not persisted, since this project needs the status-update UI, not backend
+  // status-management functionality.
+  final Map<String, String> _previewStatuses = {};
 
   Color _statusColor(String status) {
     switch (status) {
@@ -103,9 +112,12 @@ class MyOrdersPage extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final doc = orders[index];
                     final data = doc.data();
-                    final status = data['status'] is String
+                    final storedStatus = data['status'] is String
                         ? data['status'] as String
                         : 'Pending';
+                    final storedStatusIndex = _statuses.indexOf(storedStatus);
+                    final status = _previewStatuses[doc.id] ??
+                        (storedStatusIndex < 0 ? 'Pending' : storedStatus);
                     final rawItems = data['items'];
                     final items = rawItems is List ? rawItems : const [];
                     final total = data['totalPrice'];
@@ -173,6 +185,30 @@ class MyOrdersPage extends StatelessWidget {
                                   ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 14),
+                            DropdownButtonFormField<String>(
+                              value: status,
+                              decoration: const InputDecoration(
+                                labelText: 'Update status (demo only)',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: _statuses
+                                  .map((value) => DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setState(() => _previewStatuses[doc.id] = value);
+                              },
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Demo control: this selection changes the screen only; it is not saved to Firestore.',
+                              style: TextStyle(fontSize: 12, color: grey),
                             ),
                             const SizedBox(height: 14),
                             Row(
