@@ -11,7 +11,8 @@ class MyOrdersPage extends StatefulWidget {
   State<MyOrdersPage> createState() => _MyOrdersPageState();
 }
 
-class _MyOrdersPageState extends State<MyOrdersPage> {
+class _MyOrdersPageState extends State<MyOrdersPage>
+    with SingleTickerProviderStateMixin {
   static const List<String> _statuses = [
     'Pending',
     'Preparing',
@@ -19,18 +20,48 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     'Completed',
   ];
 
-  // Demo-only local override: visible in UI only, never saved to Firestore.
+  late final TabController _controller;
+
+  // Demo-only status changes are local to this screen and are not written to Firestore.
   final Map<String, String> _demoStatusOverrides = {};
 
+  @override
+  void initState() {
+    super.initState();
+    _controller = TabController(length: _statuses.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _statusFor(Map<String, dynamic> data, String orderId) {
+    final override = _demoStatusOverrides[orderId];
+    if (override != null) return override;
+
+    final rawStatus = data['status'];
+    if (rawStatus is! String || rawStatus.trim().isEmpty) return 'Pending';
+
+    // Accept both title-case statuses in this app and lowercase values from
+    // the source CampusCart implementation.
+    final normalized = rawStatus.trim().toLowerCase();
+    for (final status in _statuses) {
+      if (status.toLowerCase() == normalized) return status;
+    }
+    return rawStatus;
+  }
+
   Color _statusColor(String status) {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return Colors.orange;
-      case 'Preparing':
+      case 'preparing':
         return blue;
-      case 'Ready for Pickup':
+      case 'ready for pickup':
         return Colors.green;
-      case 'Completed':
+      case 'completed':
         return grey;
       default:
         return persimmon;
@@ -52,6 +83,153 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     return 'Order time unavailable';
   }
 
+  double _totalPrice(Map<String, dynamic> data) {
+    final total = data['totalPrice'] ?? data['total'] ?? data['subtotal'];
+    return total is num ? total.toDouble() : 0.0;
+  }
+
+  Widget _emptyState(String status) {
+    final message = switch (status) {
+      'Pending' => "You don't have any pending orders.",
+      'Preparing' => "You don't have any orders being prepared.",
+      'Ready for Pickup' => "You don't have any orders ready for pickup.",
+      _ => "You don't have any completed orders yet.",
+    };
+    final hint = switch (status) {
+      'Pending' => 'Orders you place will appear here.',
+      'Preparing' => 'Accepted orders appear here while the stall prepares them.',
+      'Ready for Pickup' => 'Orders ready to collect will appear here.',
+      _ => 'Your completed orders will be kept here.',
+    };
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.receipt_long, size: 64, color: skyBlue),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            Text(hint, textAlign: TextAlign.center, style: const TextStyle(color: grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ordersForStatus(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> orders,
+    String status,
+  ) {
+    final matchingOrders = orders.where((doc) {
+      return _statusFor(doc.data(), doc.id).toLowerCase() == status.toLowerCase();
+    }).toList();
+
+    if (matchingOrders.isEmpty) return _emptyState(status);
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: matchingOrders.length,
+      itemBuilder: (context, index) {
+        final doc = matchingOrders[index];
+        final data = doc.data();
+        final currentStatus = _statusFor(data, doc.id);
+        final rawItems = data['items'];
+        final items = rawItems is List ? rawItems : const [];
+        final timestamp = data['timestamp'] ?? data['createdAt'];
+
+        return Card(
+          color: Colors.white,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        data['orderCode'] is String
+                            ? 'Order #${data['orderCode']}'
+                            : 'Campus pickup order',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                    Chip(
+                      label: Text(
+                        currentStatus,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      backgroundColor: _statusColor(currentStatus),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                Text(_formatTimestamp(timestamp), style: const TextStyle(color: grey)),
+                const SizedBox(height: 10),
+                for (final rawItem in items)
+                  if (rawItem is Map)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text(
+                        '${rawItem['quantity'] ?? 0} x ${rawItem['name'] ?? 'Food item'}',
+                        style: const TextStyle(color: ink),
+                      ),
+                    ),
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Order ${doc.id.substring(0, doc.id.length < 6 ? doc.id.length : 6)}'),
+                    Text(
+                      '₱${_totalPrice(data).toStringAsFixed(2)}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: persimmon),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _statuses.contains(currentStatus) ? currentStatus : 'Pending',
+                  decoration: const InputDecoration(
+                    labelText: 'Update status (demo only)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: _statuses
+                      .map((value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _demoStatusOverrides[doc.id] = value);
+                  },
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Demo mode: this selector only changes the screen display.',
+                  style: TextStyle(fontSize: 12, color: grey),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
@@ -63,6 +241,14 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         title: const Text(
           'My Orders',
           style: TextStyle(fontWeight: FontWeight.w800, color: ink),
+        ),
+        bottom: TabBar(
+          controller: _controller,
+          isScrollable: true,
+          indicatorColor: blue,
+          labelColor: blue,
+          unselectedLabelColor: grey,
+          tabs: _statuses.map((status) => Tab(text: status)).toList(),
         ),
       ),
       body: user == null
@@ -78,147 +264,17 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                     ),
                   );
                 }
-
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: blue),
-                  );
+                  return const Center(child: CircularProgressIndicator(color: blue));
                 }
 
                 final orders = snapshot.data?.docs ?? [];
-                if (orders.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.receipt_long, size: 64, color: skyBlue),
-                          SizedBox(height: 12),
-                          Text('No orders yet.'),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: orders.length,
-                  itemBuilder: (context, index) {
-                    final doc = orders[index];
-                    final data = doc.data();
-
-                    final backendStatus = data['status'] is String
-                        ? data['status'] as String
-                        : 'Pending';
-                    final currentStatus =
-                        _demoStatusOverrides[doc.id] ?? backendStatus;
-
-                    final rawItems = data['items'];
-                    final items = rawItems is List ? rawItems : const [];
-                    final total = data['totalPrice'];
-                    final totalPrice = total is num ? total.toDouble() : 0.0;
-
-                    return Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Campus pickup order',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
-                                      color: ink,
-                                    ),
-                                  ),
-                                ),
-                                Chip(
-                                  label: Text(
-                                    currentStatus,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  backgroundColor: _statusColor(currentStatus),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ],
-                            ),
-                            Text(
-                              _formatTimestamp(data['timestamp']),
-                              style: const TextStyle(color: grey),
-                            ),
-                            const SizedBox(height: 10),
-                            for (final rawItem in items)
-                              if (rawItem is Map)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 3),
-                                  child: Text(
-                                    '${rawItem['quantity'] ?? 0} x ${rawItem['name'] ?? 'Food item'}',
-                                    style: const TextStyle(color: ink),
-                                  ),
-                                ),
-                            const Divider(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Order ${doc.id.substring(0, 6)}'),
-                                Text(
-                                  '₱${totalPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: persimmon,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Demo-only control: interface only; nothing writes to Firestore.
-                            DropdownButtonFormField<String>(
-                              value: currentStatus,
-                              decoration: const InputDecoration(
-                                labelText: 'Update status (demo only)',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              items: _statuses
-                                  .map((value) => DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() {
-                                  _demoStatusOverrides[doc.id] = value;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Demo mode: this selector only changes the screen display.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                return TabBarView(
+                  controller: _controller,
+                  children: _statuses
+                      .map((status) => _ordersForStatus(orders, status))
+                      .toList(),
                 );
               },
             ),
